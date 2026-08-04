@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Event Registration System - Login</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="login-container">
+    <h1>Event Registration</h1>
+    <p class="subtitle">School Event Management System</p>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" placeholder="Enter your email" required>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Enter your password" required>
+      </div>
+
+      <button type="submit" class="btn">Login</button>
+    </form>
+
+    <div id="message"></div>
+
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #777;">
+      <strong>Test Credentials:</strong>
+      <p><strong>Student:</strong> student1@school.com / pass123</p>
+      <p><strong>Organizer:</strong> org1@school.com / pass123</p>
+      <p><strong>Admin:</strong> admin@school.com / admin123</p>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          localStorage.setItem('user', JSON.stringify(data.user));
+
+          if (data.user.role === 'student') window.location.href = 'student.html';
+          else if (data.user.role === 'organizer') window.location.href = 'organizer.html';
+          else if (data.user.role === 'admin') window.location.href = 'admin.html';
+        } else {
+          showMessage('Invalid email or password', 'error');
+        }
+      } catch (err) {
+        showMessage('Error connecting to server', 'error');
+        console.error(err);
+      }
+    });
+
+    function showMessage(msg, type) {
+      const messageDiv = document.getElementById('message');
+      messageDiv.className = `message ${type}`;
+      messageDiv.textContent = msg;
+      setTimeout(() => { messageDiv.textContent = ''; }, 4000);
+    }
+  </script>
+</body>
+</html>
