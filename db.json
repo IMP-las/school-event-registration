@@ -27,6 +27,13 @@
       "email": "admin@school.com",
       "password": "admin123",
       "role": "admin"
+    },
+    {
+      "userId": 5,
+      "name": "jolas",
+      "email": "sumangayonmarkjolas@gmail.com",
+      "password": "harapeco",
+      "role": "organizer"
     }
   ],
   "events": [
@@ -40,14 +47,27 @@
     {
       "eventId": 3,
       "title": "Acquintance party",
-      "description": "sama sama lahat ng supot",
+      "description": "wqeqwe",
       "eventDate": "2026-08-04",
       "organizerId": 3
+    },
+    {
+      "eventId": 4,
+      "title": "jolas event",
+      "description": "rtttr",
+      "eventDate": "2026-08-20",
+      "organizerId": 5
     }
   ],
   "registrations": [
     {
       "regId": 1,
+      "eventId": 2,
+      "studentId": 1,
+      "dateRegistered": "2026-08-04"
+    },
+    {
+      "regId": 2,
       "eventId": 3,
       "studentId": 1,
       "dateRegistered": "2026-08-04"

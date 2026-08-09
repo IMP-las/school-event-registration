@@ -1,0 +1,17 @@
+{
+  "name": "school-event-registration",
+  "version": "2.0.0",
+  "description": "School Event Registration System v2 - Student Sign Up, Simplified Student View",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "Mark Jolas Sumang-ayon, Chelsea Gleena Mae Manaeg",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "firebase-admin": "^14.2.0"
+  }
+}
