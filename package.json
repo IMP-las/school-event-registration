@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js"
   },
-  "author": "Mark Jolas Sumang-ayon, Chelsea Gleena Mae Manaeg",
+  "author": "Mark Jolas Sumang-ayon, Chelsea Gleceria Mae Manaeg",
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",
