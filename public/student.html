@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="navbar">
+    <h2>🎓 Student Dashboard</h2>
+    <div class="right">
+      <span class="user-name" id="userName"></span>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="main-content">
+
+      <div class="section">
+        <h2>My Registrations</h2>
+        <div id="registeredEvents"><div class="loading">Loading...</div></div>
+      </div>
+
+      <div class="section">
+        <h2>Available Events</h2>
+        <div id="availableEvents"><div class="loading">Loading...</div></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let currentUser = null;
+
+    function checkAuth() {
+      const user = localStorage.getItem('user');
+      if (!user) { window.location.href = 'index.html'; return; }
+      currentUser = JSON.parse(user);
+      if (currentUser.role !== 'student') { window.location.href = 'index.html'; return; }
+      document.getElementById('userName').textContent = currentUser.fullName;
+      loadData();
+    }
+
+    async function loadData() {
+      await Promise.all([loadMyRegistrations(), loadAvailableEvents()]);
+    }
+
+    // Note: eventId/registrationId are used internally for the buttons only —
+    // they are never printed as visible text, per the simplified student view.
+    async function loadMyRegistrations() {
+      try {
+        const res = await fetch(`/api/student/${currentUser.userId}/registrations`);
+        const regs = await res.json();
+        const container = document.getElementById('registeredEvents');
+
+        if (regs.length === 0) {
+          container.innerHTML = '<div class="empty-state">You haven\'t registered for any events yet.</div>';
+          return;
+        }
+
+        container.innerHTML = `<div class="cards-grid">${regs.map(r => `
+          <div class="card">
+            <span class="status-pill status-registered">Registered</span>
+            <h3>${r.eventName}</h3>
+            <p>📅 ${formatDate(r.eventDate)}</p>
+            <p>📍 ${r.location}</p>
+            <div class="btn-group">
+              <button class="btn-small btn-danger" onclick="unregisterEvent('${r.eventId}')">Unregister</button>
+            </div>
+          </div>
+        `).join('')}</div>`;
+      } catch (err) {
+        document.getElementById('registeredEvents').innerHTML = '<div class="empty-state">Error loading your registrations.</div>';
+      }
+    }
+
+    async function loadAvailableEvents() {
+      try {
+        const res = await fetch(`/api/student/${currentUser.userId}/events`);
+        const events = await res.json();
+        const container = document.getElementById('availableEvents');
+
+        if (events.length === 0) {
+          container.innerHTML = '<div class="empty-state">No events available right now.</div>';
+          return;
+        }
+
+        container.innerHTML = `<div class="cards-grid">${events.map(e => `
+          <div class="card">
+            <span class="status-pill ${e.status === 'Open' ? 'status-open' : 'status-full'}">${e.status}</span>
+            <h3>${e.eventName}</h3>
+            <p>${e.description}</p>
+            <p>📅 ${formatDate(e.eventDate)}</p>
+            <p>📍 ${e.location}</p>
+            <div class="btn-group">
+              <button class="btn-small btn-primary" ${e.status === 'Full' ? 'disabled' : ''} onclick="registerEvent('${e.eventId}')">
+                ${e.status === 'Full' ? 'Event Full' : 'Register'}
+              </button>
+            </div>
+          </div>
+        `).join('')}</div>`;
+      } catch (err) {
+        document.getElementById('availableEvents').innerHTML = '<div class="empty-state">Error loading events.</div>';
+      }
+    }
+
+    async function registerEvent(eventId) {
+      try {
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eventId, studentId: currentUser.userId, studentName: currentUser.fullName })
+        });
+        const data = await res.json();
+        if (data.success) { alert('✅ You are registered!'); loadData(); }
+        else alert('❌ ' + data.message);
+      } catch (err) {
+        alert('❌ Error registering. Try again.');
+      }
+    }
+
+    async function unregisterEvent(eventId) {
+      if (!confirm('Unregister from this event?')) return;
+      try {
+        const res = await fetch('/api/unregister', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eventId, studentId: currentUser.userId })
+        });
+        const data = await res.json();
+        if (data.success) { alert('✅ Unregistered.'); loadData(); }
+        else alert('❌ ' + data.message);
+      } catch (err) {
+        alert('❌ Error unregistering.');
+      }
+    }
+
+    function formatDate(dateStr) {
+      return new Date(dateStr).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    function logout() {
+      localStorage.removeItem('user');
+      window.location.href = 'index.html';
+    }
+
+    checkAuth();
+  </script>
+</body>
+</html>

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Organizer Dashboard - Manage Events</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="navbar">
+    <h2>Organizer Dashboard</h2>
+    <div class="user-info">
+      <p>Welcome, <strong id="userName">Organizer</strong></p>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="main-content">
+      <div class="section">
+        <h2>Create New Event</h2>
+        <form id="eventForm">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="eventTitle">Event Title</label>
+              <input type="text" id="eventTitle" required>
+            </div>
+            <div class="form-group">
+              <label for="eventDate">Event Date</label>
+              <input type="date" id="eventDate" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="eventDesc">Description</label>
+            <textarea id="eventDesc" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Create Event</button>
+        </form>
+      </div>
+
+      <div class="section">
+        <h2>My Events</h2>
+        <div id="myEvents"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="participantModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;">
+    <div style="background:white; margin:50px auto; padding:30px; width:90%; max-width:600px; border-radius:10px;">
+      <h2>Event Participants</h2>
+      <table id="participantTable">
+        <tr><th>Student Name</th><th>Email</th><th>Registered Date</th></tr>
+      </table>
+      <button class="btn btn-secondary" style="margin-top:20px; width:100%;" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+
+  <script>
+    let currentUser = null;
+
+    function checkAuth() {
+      const user = localStorage.getItem('user');
+      if (!user) { window.location.href = 'index.html'; return; }
+      currentUser = JSON.parse(user);
+      if (currentUser.role !== 'organizer') { window.location.href = 'index.html'; return; }
+      document.getElementById('userName').textContent = currentUser.name;
+      loadMyEvents();
+    }
+
+    document.getElementById('eventForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('eventTitle').value;
+      const description = document.getElementById('eventDesc').value;
+      const eventDate = document.getElementById('eventDate').value;
+
+      const response = await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description, eventDate, organizerId: currentUser.userId })
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        alert('✅ Event created!');
+        document.getElementById('eventForm').reset();
+        loadMyEvents();
+      }
+    });
+
+    async function loadMyEvents() {
+      const response = await fetch(`/api/organizer/events/${currentUser.userId}`);
+      const events = await response.json();
+      const container = document.getElementById('myEvents');
+
+      if (events.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No events created yet.</p></div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="cards-grid">
+          ${events.map(event => `
+            <div class="card">
+              <h3>${event.title}</h3>
+              <p>${event.description}</p>
+              <p><strong>Date:</strong> ${new Date(event.eventDate).toLocaleDateString()}</p>
+              <div class="btn-group">
+                <button class="btn btn-primary btn-small" onclick="viewParticipants(${event.eventId})">View Participants</button>
+                <button class="btn btn-danger btn-small" onclick="deleteEvent(${event.eventId})">Delete</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    async function viewParticipants(eventId) {
+      const response = await fetch(`/api/events/${eventId}/registrations`);
+      const registrations = await response.json();
+      const tableBody = document.getElementById('participantTable');
+
+      while (tableBody.rows.length > 1) tableBody.deleteRow(1);
+
+      if (registrations.length === 0) {
+        tableBody.innerHTML += '<tr><td colspan="3" style="text-align:center;">No registrations yet</td></tr>';
+      } else {
+        registrations.forEach(reg => {
+          const row = tableBody.insertRow();
+          row.innerHTML = `<td>${reg.studentName}</td><td>${reg.studentEmail}</td><td>${reg.dateRegistered}</td>`;
+        });
+      }
+
+      document.getElementById('participantModal').style.display = 'block';
+    }
+
+    function closeModal() {
+      document.getElementById('participantModal').style.display = 'none';
+    }
+
+    async function deleteEvent(eventId) {
+      if (!confirm('Delete this event? All registrations will be removed.')) return;
+
+      const response = await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
+      const data = await response.json();
+
+      if (data.success) {
+        alert('✅ Event deleted!');
+        loadMyEvents();
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('user');
+      window.location.href = 'index.html';
+    }
+
+    checkAuth();
+  </script>
+</body>
+</html>
