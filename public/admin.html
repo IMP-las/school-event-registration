@@ -3,69 +3,53 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard - System Management</title>
+  <title>Admin Dashboard</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="navbar">
-    <h2>Admin Dashboard</h2>
-    <div class="user-info">
-      <p>Welcome, <strong id="userName">Admin</strong></p>
+    <h2>🛡️ Admin Dashboard</h2>
+    <div class="right">
+      <span class="user-name" id="userName"></span>
       <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
   </div>
 
   <div class="container">
     <div class="main-content">
+
       <div class="section">
-        <h2>System Report</h2>
-        <div class="stats-grid" id="statsGrid"></div>
+        <h2>System Statistics</h2>
+        <div class="stats-grid" id="statsGrid"><div class="loading">Loading...</div></div>
+      </div>
+
+      <!--
+        NOTE: "Add User" has been intentionally removed.
+        Students self-register via Sign Up on the login page.
+        Organizer/Admin accounts are seeded directly in the database.
+        Admin can only VIEW and DELETE users/events.
+      -->
+
+      <div class="section">
+        <h2>Manage Users <span style="font-weight:400; font-size:12px; color:#9ca3af;">(view &amp; delete only)</span></h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Name</th><th>Student ID</th><th>Email</th><th>Program</th><th>Role</th><th>Action</th></tr></thead>
+            <tbody id="usersBody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="section">
-        <h2>➕ Add New User</h2>
-        <form id="addUserForm">
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="userNameInput">Full Name</label>
-              <input type="text" id="userNameInput" required>
-            </div>
-            <div class="form-group">
-              <label for="userEmail">Email</label>
-              <input type="email" id="userEmail" required>
-            </div>
-          </div>
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="userPassword">Password</label>
-              <input type="password" id="userPassword" required>
-            </div>
-            <div class="form-group">
-              <label for="userRole">Role</label>
-              <select id="userRole" required>
-                <option value="">Select Role</option>
-                <option value="student">Student</option>
-                <option value="organizer">Organizer</option>
-              </select>
-            </div>
-          </div>
-          <button type="submit" class="btn btn-primary">Add User</button>
-        </form>
+        <h2>Manage Events</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Event Name</th><th>Organizer</th><th>Date</th><th>Capacity</th><th>Registered</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="eventsBody"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
+          </table>
+        </div>
       </div>
 
-      <div class="section">
-        <h2>👥 Manage Users</h2>
-        <table id="usersTable">
-          <tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr>
-        </table>
-      </div>
-
-      <div class="section">
-        <h2>📋 Manage All Events</h2>
-        <table id="eventsTable">
-          <tr><th>ID</th><th>Title</th><th>Date</th><th>Organizer</th><th>Registrations</th><th>Action</th></tr>
-        </table>
-      </div>
     </div>
   </div>
 
@@ -77,107 +61,111 @@
       if (!user) { window.location.href = 'index.html'; return; }
       currentUser = JSON.parse(user);
       if (currentUser.role !== 'admin') { window.location.href = 'index.html'; return; }
-      document.getElementById('userName').textContent = currentUser.name;
+      document.getElementById('userName').textContent = currentUser.fullName;
       loadDashboard();
     }
 
     async function loadDashboard() {
-      await loadSystemReport();
-      await loadUsers();
-      await loadAllEvents();
+      await Promise.all([loadStats(), loadUsers(), loadEvents()]);
     }
 
-    async function loadSystemReport() {
-      const response = await fetch('/api/admin/report');
-      const report = await response.json();
-
-      document.getElementById('statsGrid').innerHTML = `
-        <div class="stat-box"><div class="number">${report.totalUsers}</div><div class="label">Total Users</div></div>
-        <div class="stat-box"><div class="number">${report.totalStudents}</div><div class="label">Students</div></div>
-        <div class="stat-box"><div class="number">${report.totalOrganizers}</div><div class="label">Organizers</div></div>
-        <div class="stat-box"><div class="number">${report.totalEvents}</div><div class="label">Events</div></div>
-        <div class="stat-box"><div class="number">${report.totalRegistrations}</div><div class="label">Registrations</div></div>
-        <div class="stat-box"><div class="number">${report.avgRegistrationsPerEvent}</div><div class="label">Avg/Event</div></div>
-      `;
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/admin/report');
+        const r = await res.json();
+        document.getElementById('statsGrid').innerHTML = `
+          <div class="stat-box"><div class="number">${r.totalUsers}</div><div class="label">Total Users</div></div>
+          <div class="stat-box"><div class="number">${r.totalStudents}</div><div class="label">Students</div></div>
+          <div class="stat-box"><div class="number">${r.totalOrganizers}</div><div class="label">Organizers</div></div>
+          <div class="stat-box"><div class="number">${r.totalEvents}</div><div class="label">Events</div></div>
+          <div class="stat-box"><div class="number">${r.totalRegistrations}</div><div class="label">Registrations</div></div>
+        `;
+      } catch (err) {
+        document.getElementById('statsGrid').innerHTML = '<p>Error loading stats.</p>';
+      }
     }
 
     async function loadUsers() {
-      const response = await fetch('/api/users');
-      const users = await response.json();
-      const tableBody = document.getElementById('usersTable');
+      try {
+        const res = await fetch('/api/users');
+        const users = await res.json();
+        const tbody = document.getElementById('usersBody');
 
-      while (tableBody.rows.length > 1) tableBody.deleteRow(1);
+        if (users.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#aaa;">No users found</td></tr>';
+          return;
+        }
 
-      users.forEach(user => {
-        const row = tableBody.insertRow();
-        row.innerHTML = `
-          <td>${user.userId}</td>
-          <td>${user.name}</td>
-          <td>${user.email}</td>
-          <td>${user.role.toUpperCase()}</td>
-          <td><button class="btn btn-danger btn-small" onclick="deleteUser(${user.userId}, '${user.name}')">Delete</button></td>
-        `;
-      });
-    }
-
-    async function loadAllEvents() {
-      const eventsResponse = await fetch('/api/events');
-      const events = await eventsResponse.json();
-      const tableBody = document.getElementById('eventsTable');
-
-      while (tableBody.rows.length > 1) tableBody.deleteRow(1);
-
-      for (const event of events) {
-        const regResponse = await fetch(`/api/events/${event.eventId}/registrations`);
-        const registrations = await regResponse.json();
-
-        const row = tableBody.insertRow();
-        row.innerHTML = `
-          <td>${event.eventId}</td>
-          <td>${event.title}</td>
-          <td>${new Date(event.eventDate).toLocaleDateString()}</td>
-          <td>${event.organizerName}</td>
-          <td>${registrations.length}</td>
-          <td><button class="btn btn-danger btn-small" onclick="deleteEvent(${event.eventId}, '${event.title}')">Delete</button></td>
-        `;
+        tbody.innerHTML = users.map((u, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${u.fullName}</td>
+            <td>${u.studentId || '—'}</td>
+            <td>${u.email}</td>
+            <td>${u.program || '—'}</td>
+            <td><span class="role-badge role-${u.role}">${u.role.toUpperCase()}</span></td>
+            <td><button class="btn-small btn-danger" onclick="deleteUser('${u.userId}', '${u.fullName}')">Delete</button></td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        document.getElementById('usersBody').innerHTML = '<tr><td colspan="7">Error loading users.</td></tr>';
       }
     }
 
-    document.getElementById('addUserForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = document.getElementById('userNameInput').value;
-      const email = document.getElementById('userEmail').value;
-      const password = document.getElementById('userPassword').value;
-      const role = document.getElementById('userRole').value;
+    async function loadEvents() {
+      try {
+        const res = await fetch('/api/events');
+        const events = await res.json();
+        const tbody = document.getElementById('eventsBody');
 
-      const response = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role })
-      });
-      const data = await response.json();
+        if (events.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#aaa;">No events found</td></tr>';
+          return;
+        }
 
-      if (data.success) {
-        alert('✅ User added!');
-        document.getElementById('addUserForm').reset();
-        loadUsers();
-      } else {
-        alert('❌ ' + data.message);
+        tbody.innerHTML = events.map((e, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${e.eventName}</td>
+            <td>${e.organizerName}</td>
+            <td>${formatDate(e.eventDate)}</td>
+            <td>${e.capacity}</td>
+            <td>${e.registeredCount}</td>
+            <td>${e.status}</td>
+            <td><button class="btn-small btn-danger" onclick="deleteEvent('${e.eventId}', '${e.eventName}')">Delete</button></td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        document.getElementById('eventsBody').innerHTML = '<tr><td colspan="8">Error loading events.</td></tr>';
       }
-    });
-
-    async function deleteUser(userId, userName) {
-      if (!confirm(`Delete user "${userName}"?`)) return;
-      const response = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
-      const data = await response.json();
-      if (data.success) { alert('✅ User deleted!'); loadDashboard(); }
     }
 
-    async function deleteEvent(eventId, eventTitle) {
-      if (!confirm(`Delete event "${eventTitle}"?`)) return;
-      const response = await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
-      const data = await response.json();
-      if (data.success) { alert('✅ Event deleted!'); loadDashboard(); }
+    async function deleteUser(userId, name) {
+      if (!confirm(`Delete user "${name}"? This also removes their registrations/events.`)) return;
+      try {
+        const res = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) { alert('✅ User deleted.'); loadDashboard(); }
+        else alert('❌ ' + data.message);
+      } catch (err) {
+        alert('❌ Error deleting user.');
+      }
+    }
+
+    async function deleteEvent(eventId, name) {
+      if (!confirm(`Delete event "${name}"? All registrations will also be removed.`)) return;
+      try {
+        const res = await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) { alert('✅ Event deleted.'); loadDashboard(); }
+        else alert('❌ ' + data.message);
+      } catch (err) {
+        alert('❌ Error deleting event.');
+      }
+    }
+
+    function formatDate(dateStr) {
+      return new Date(dateStr).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
     }
 
     function logout() {
