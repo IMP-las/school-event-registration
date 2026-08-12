@@ -1,31 +1,9 @@
-/*
-=================================================================
-SCHOOL EVENT REGISTRATION SYSTEM — v2
-Implements: system_algorithm_v2.md
-=================================================================
-
-KEY CHANGES FROM v1:
-  - Students self-register via /api/signup (Student ID, Program added)
-  - Admin "Add User" endpoint REMOVED — admin can only view/delete
-  - Event now has: location, capacity, status ("open"/"closed"/"cancelled")
-  - Registration checks capacity + duplicate + event status internally
-  - Student-facing endpoints return simplified data (no IDs/capacity shown)
-  - Organizer/Admin endpoints still return full data (IDs, capacity, etc.)
-
-FIRESTORE COLLECTIONS:
-  users          { fullName, studentId?, email, program?, password(hashed), role, createdAt }
-  events         { eventName, description, eventDate, location, capacity, organizerId, organizerName, status, createdAt }
-  registrations  { studentId, studentName, studentIdNumber, program, eventId, eventName,
-                    eventDate, location, registrationDate, status }
-=================================================================
-*/
-
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const bcrypt = require("bcryptjs");
-const { initializeApp, cert } = require("firebase-admin/app");
-const { getFirestore } = require("firebase-admin/firestore");
+const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 const PORT = 3000;
@@ -34,42 +12,64 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
 
-// ===== FIREBASE SETUP =====
-const serviceAccount = require("./serviceAccountKey.json");
-initializeApp({
-   credential: cert(serviceAccount)
-});
-const db = getFirestore();
+// ===== SUPABASE SETUP =====
+// Use the SERVICE ROLE key here (never the anon key) — this is a trusted
+// server environment, and RLS is disabled, so the service key gives full access.
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.error(
+    "❌ Missing SUPABASE_URL or SUPABASE_SERVICE_KEY in your .env file.",
+  );
+  process.exit(1);
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 const VALID_PROGRAMS = ["EN", "CpE", "IT", "CS", "EE", "CE"];
 
-// ===== SEED STAFF ACCOUNTS (organizer/admin only — students sign up themselves) =====
+// ===== SEED STAFF ACCOUNTS =====
 async function seedStaff() {
-  const snap = await db
-    .collection("users")
-    .where("role", "in", ["organizer", "admin"])
-    .get();
-  if (!snap.empty) return;
+  const { data: existing, error } = await supabase
+    .from("users")
+    .select("id")
+    .in("role", ["organizer", "admin"])
+    .limit(1);
+
+  if (error) {
+    console.error("❌ SEED CHECK ERROR:", error.message);
+    return;
+  }
+  if (existing && existing.length > 0) {
+    console.log("✅ Staff accounts already exist. Skipping seed.");
+    return;
+  }
 
   console.log("🌱 Seeding organizer & admin accounts...");
   const orgPass = await bcrypt.hash("pass123", 10);
   const adminPass = await bcrypt.hash("admin123", 10);
 
-  await db.collection("users").add({
-    fullName: "Mark Organizer",
-    email: "org1@school.com",
-    password: orgPass,
-    role: "organizer",
-    createdAt: new Date().toISOString(),
-  });
-  await db.collection("users").add({
-    fullName: "Admin User",
-    email: "admin@school.com",
-    password: adminPass,
-    role: "admin",
-    createdAt: new Date().toISOString(),
-  });
-  console.log("✅ Staff accounts ready.");
+  const { error: insertErr } = await supabase.from("users").insert([
+    {
+      full_name: "Mark Organizer",
+      email: "org1@school.com",
+      password: orgPass,
+      role: "organizer",
+    },
+    {
+      full_name: "Admin User",
+      email: "admin@school.com",
+      password: adminPass,
+      role: "admin",
+    },
+  ]);
+
+  if (insertErr) {
+    console.error("❌ SEED INSERT ERROR:", insertErr.message);
+  } else {
+    console.log("✅ Staff accounts ready.");
+  }
 }
 
 // ===== HELPERS =====
@@ -78,12 +78,28 @@ function isValidEmail(email) {
 }
 
 async function getRegisteredCount(eventId) {
-  const snap = await db
-    .collection("registrations")
-    .where("eventId", "==", eventId)
-    .where("status", "==", "registered")
-    .get();
-  return snap.size;
+  const { count } = await supabase
+    .from("registrations")
+    .select("*", { count: "exact", head: true })
+    .eq("event_id", eventId)
+    .eq("status", "registered");
+  return count || 0;
+}
+
+// Map a DB event row (snake_case) → API shape (camelCase) expected by frontend
+function mapEvent(e, registeredCount) {
+  return {
+    eventId: e.id,
+    eventName: e.event_name,
+    description: e.description,
+    eventDate: e.event_date,
+    location: e.location,
+    capacity: e.capacity,
+    organizerId: e.organizer_id,
+    organizerName: e.organizer_name,
+    status: e.status,
+    registeredCount,
+  };
 }
 
 // ===== 1. STUDENT SIGN UP =====
@@ -95,23 +111,27 @@ app.post("/api/signup", async (req, res) => {
       .status(400)
       .json({ success: false, message: "Full name is required" });
   }
-
   if (!studentId || !/^\d{10}$/.test(studentId)) {
-    return res.status(400).json({
-      success: false,
-      message: "Student ID must be in format 2401010063 (10 digits)",
-    });
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "Student ID must be in format 2401010063 (10 digits)",
+      });
   }
 
-  const dupId = await db
-    .collection("users")
-    .where("studentId", "==", studentId)
-    .get();
-  if (!dupId.empty) {
-    return res.status(400).json({
-      success: false,
-      message: "This Student ID is already registered",
-    });
+  const { data: dupId } = await supabase
+    .from("users")
+    .select("id")
+    .eq("student_id", studentId)
+    .limit(1);
+  if (dupId && dupId.length > 0) {
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "This Student ID is already registered",
+      });
   }
 
   if (!email || !isValidEmail(email)) {
@@ -120,11 +140,12 @@ app.post("/api/signup", async (req, res) => {
       .json({ success: false, message: "Invalid email format" });
   }
 
-  const dupEmail = await db
-    .collection("users")
-    .where("email", "==", email)
-    .get();
-  if (!dupEmail.empty) {
+  const { data: dupEmail } = await supabase
+    .from("users")
+    .select("id")
+    .eq("email", email)
+    .limit(1);
+  if (dupEmail && dupEmail.length > 0) {
     return res
       .status(400)
       .json({ success: false, message: "Email is already registered" });
@@ -135,38 +156,47 @@ app.post("/api/signup", async (req, res) => {
       .status(400)
       .json({ success: false, message: "Please select a valid program" });
   }
-
   if (!password || password.length < 6) {
-    return res.status(400).json({
-      success: false,
-      message: "Password must be at least 6 characters",
-    });
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
   }
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = {
-      fullName,
-      studentId,
-      email,
-      program,
-      password: hashedPassword,
-      role: "student",
-      createdAt: new Date().toISOString(),
-    };
+    const { data, error } = await supabase
+      .from("users")
+      .insert([
+        {
+          full_name: fullName,
+          student_id: studentId,
+          email,
+          program,
+          password: hashedPassword,
+          role: "student",
+        },
+      ])
+      .select()
+      .single();
 
-    const ref = await db.collection("users").add(newUser);
+    if (error) throw error;
+
     res.json({
       success: true,
       message: "Account created successfully! You can now log in.",
-      userId: ref.id,
+      userId: data.id,
     });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: "Database error occurred. Please try again.",
-    });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Database error occurred. Please try again.",
+      });
   }
 });
 
@@ -181,24 +211,26 @@ app.post("/api/login", async (req, res) => {
   }
 
   try {
-    // Try matching by studentId first, then by email
-    let snap = await db
-      .collection("users")
-      .where("studentId", "==", loginId)
-      .get();
-    if (snap.empty) {
-      snap = await db.collection("users").where("email", "==", loginId).get();
+    let { data: users } = await supabase
+      .from("users")
+      .select("*")
+      .eq("student_id", loginId)
+      .limit(1);
+    if (!users || users.length === 0) {
+      ({ data: users } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", loginId)
+        .limit(1));
     }
 
-    if (snap.empty) {
+    if (!users || users.length === 0) {
       return res
         .status(401)
         .json({ success: false, message: "Invalid credentials" });
     }
 
-    const userDoc = snap.docs[0];
-    const user = userDoc.data();
-
+    const user = users[0];
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
       return res
@@ -209,11 +241,11 @@ app.post("/api/login", async (req, res) => {
     res.json({
       success: true,
       user: {
-        userId: userDoc.id,
-        fullName: user.fullName,
+        userId: user.id,
+        fullName: user.full_name,
         role: user.role,
         email: user.email,
-        studentId: user.studentId || null,
+        studentId: user.student_id || null,
         program: user.program || null,
       },
     });
@@ -222,32 +254,31 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-// ===== 3. STUDENT: GET AVAILABLE EVENTS (simplified — no ID/capacity shown) =====
+// ===== 3. STUDENT: GET AVAILABLE EVENTS (simplified) =====
 app.get("/api/student/:studentId/events", async (req, res) => {
   try {
-    const eventsSnap = await db
-      .collection("events")
-      .where("status", "==", "open")
-      .get();
+    const { data: events, error } = await supabase
+      .from("events")
+      .select("*")
+      .eq("status", "open");
+    if (error) throw error;
 
-    const events = await Promise.all(
-      eventsSnap.docs.map(async (doc) => {
-        const event = doc.data();
-        const registeredCount = await getRegisteredCount(doc.id);
-        const isFull = registeredCount >= event.capacity;
-
+    const result = await Promise.all(
+      events.map(async (e) => {
+        const registeredCount = await getRegisteredCount(e.id);
+        const isFull = registeredCount >= e.capacity;
         return {
-          eventId: doc.id, // kept internally for the register button, never printed as text
-          eventName: event.eventName,
-          description: event.description,
-          eventDate: event.eventDate,
-          location: event.location,
+          eventId: e.id,
+          eventName: e.event_name,
+          description: e.description,
+          eventDate: e.event_date,
+          location: e.location,
           status: isFull ? "Full" : "Open",
         };
       }),
     );
 
-    res.json(events);
+    res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -258,24 +289,23 @@ app.get("/api/student/:studentId/registrations", async (req, res) => {
   const { studentId } = req.params;
 
   try {
-    const snap = await db
-      .collection("registrations")
-      .where("studentId", "==", studentId)
-      .where("status", "==", "registered")
-      .get();
+    const { data: regs, error } = await supabase
+      .from("registrations")
+      .select("*")
+      .eq("student_id", studentId)
+      .eq("status", "registered");
 
-    const registrations = snap.docs.map((doc) => {
-      const r = doc.data();
-      return {
-        eventId: r.eventId, // internal use only
-        eventName: r.eventName,
-        eventDate: r.eventDate,
-        location: r.location,
-        status: "Registered",
-      };
-    });
+    if (error) throw error;
 
-    res.json(registrations);
+    const result = regs.map((r) => ({
+      eventId: r.event_id,
+      eventName: r.event_name,
+      eventDate: r.event_date,
+      location: r.location,
+      status: "Registered",
+    }));
+
+    res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -286,13 +316,16 @@ app.post("/api/register", async (req, res) => {
   const { eventId, studentId, studentName } = req.body;
 
   try {
-    const eventDoc = await db.collection("events").doc(eventId).get();
-    if (!eventDoc.exists) {
+    const { data: event, error: eventErr } = await supabase
+      .from("events")
+      .select("*")
+      .eq("id", eventId)
+      .single();
+    if (eventErr || !event) {
       return res
         .status(404)
         .json({ success: false, message: "Event not found" });
     }
-    const event = eventDoc.data();
 
     if (event.status !== "open") {
       return res
@@ -307,40 +340,49 @@ app.post("/api/register", async (req, res) => {
         .json({ success: false, message: "Sorry, this event is already full" });
     }
 
-    const dup = await db
-      .collection("registrations")
-      .where("eventId", "==", eventId)
-      .where("studentId", "==", studentId)
-      .where("status", "==", "registered")
-      .get();
-    if (!dup.empty) {
-      return res.status(400).json({
-        success: false,
-        message: "You are already registered for this event",
-      });
+    const { data: dup } = await supabase
+      .from("registrations")
+      .select("id")
+      .eq("event_id", eventId)
+      .eq("student_id", studentId)
+      .eq("status", "registered")
+      .limit(1);
+
+    if (dup && dup.length > 0) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "You are already registered for this event",
+        });
     }
 
-    // Get student's studentId number and program for organizer's participant list
-    const studentDoc = await db.collection("users").doc(studentId).get();
-    const studentData = studentDoc.exists ? studentDoc.data() : {};
+    const { data: studentData } = await supabase
+      .from("users")
+      .select("student_id, program")
+      .eq("id", studentId)
+      .single();
 
-    const newReg = {
-      studentId,
-      studentName,
-      studentIdNumber: studentData.studentId || null,
-      program: studentData.program || null,
-      eventId,
-      eventName: event.eventName,
-      eventDate: event.eventDate,
-      location: event.location,
-      registrationDate: new Date().toISOString().split("T")[0],
-      status: "registered",
-    };
+    const { error: insertErr } = await supabase.from("registrations").insert([
+      {
+        student_id: studentId,
+        event_id: eventId,
+        student_name: studentName,
+        student_id_number: studentData?.student_id || null,
+        program: studentData?.program || null,
+        event_name: event.event_name,
+        event_date: event.event_date,
+        location: event.location,
+        registration_date: new Date().toISOString().split("T")[0],
+        status: "registered",
+      },
+    ]);
 
-    await db.collection("registrations").add(newReg);
+    if (insertErr) throw insertErr;
+
     res.json({
       success: true,
-      message: `You're registered for ${event.eventName}!`,
+      message: `You're registered for ${event.event_name}!`,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -352,17 +394,14 @@ app.post("/api/unregister", async (req, res) => {
   const { eventId, studentId } = req.body;
 
   try {
-    const snap = await db
-      .collection("registrations")
-      .where("eventId", "==", eventId)
-      .where("studentId", "==", studentId)
-      .where("status", "==", "registered")
-      .get();
+    const { error } = await supabase
+      .from("registrations")
+      .delete()
+      .eq("event_id", eventId)
+      .eq("student_id", studentId)
+      .eq("status", "registered");
 
-    const batch = db.batch();
-    snap.docs.forEach((doc) => batch.delete(doc.ref));
-    await batch.commit();
-
+    if (error) throw error;
     res.json({ success: true, message: "Unregistered successfully" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -393,19 +432,25 @@ app.post("/api/events", async (req, res) => {
   }
 
   try {
-    const newEvent = {
-      eventName,
-      description,
-      eventDate,
-      location,
-      capacity: parseInt(capacity),
-      organizerId,
-      organizerName,
-      status: "open",
-      createdAt: new Date().toISOString(),
-    };
-    const ref = await db.collection("events").add(newEvent);
-    res.json({ success: true, event: { eventId: ref.id, ...newEvent } });
+    const { data, error } = await supabase
+      .from("events")
+      .insert([
+        {
+          event_name: eventName,
+          description,
+          event_date: eventDate,
+          location,
+          capacity: parseInt(capacity),
+          organizer_id: organizerId,
+          organizer_name: organizerName,
+          status: "open",
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ success: true, event: mapEvent(data, 0) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -416,153 +461,139 @@ app.get("/api/organizer/events/:organizerId", async (req, res) => {
   const { organizerId } = req.params;
 
   try {
-    const snap = await db
-      .collection("events")
-      .where("organizerId", "==", organizerId)
-      .get();
+    const { data: events, error } = await supabase
+      .from("events")
+      .select("*")
+      .eq("organizer_id", organizerId);
+    if (error) throw error;
 
-    const events = await Promise.all(
-      snap.docs.map(async (doc) => {
-        const event = doc.data();
-        const registeredCount = await getRegisteredCount(doc.id);
-        return { eventId: doc.id, ...event, registeredCount };
+    const result = await Promise.all(
+      events.map(async (e) => {
+        const registeredCount = await getRegisteredCount(e.id);
+        return mapEvent(e, registeredCount);
       }),
     );
 
-    res.json(events);
+    res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ===== 9. GET ALL EVENTS (full detail — used by Admin) =====
+// ===== 9. GET ALL EVENTS (full detail — Admin) =====
 app.get("/api/events", async (req, res) => {
   try {
-    const snap = await db.collection("events").get();
-    const events = await Promise.all(
-      snap.docs.map(async (doc) => {
-        const event = doc.data();
-        const registeredCount = await getRegisteredCount(doc.id);
-        return { eventId: doc.id, ...event, registeredCount };
+    const { data: events, error } = await supabase.from("events").select("*");
+    if (error) throw error;
+
+    const result = await Promise.all(
+      events.map(async (e) => {
+        const registeredCount = await getRegisteredCount(e.id);
+        return mapEvent(e, registeredCount);
       }),
     );
-    res.json(events);
+
+    res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ===== 10. GET PARTICIPANTS FOR EVENT (Organizer/Admin) =====
+// ===== 10. GET PARTICIPANTS FOR EVENT =====
 app.get("/api/events/:eventId/registrations", async (req, res) => {
   const { eventId } = req.params;
 
   try {
-    const snap = await db
-      .collection("registrations")
-      .where("eventId", "==", eventId)
-      .where("status", "==", "registered")
-      .get();
+    const { data: regs, error } = await supabase
+      .from("registrations")
+      .select("*")
+      .eq("event_id", eventId)
+      .eq("status", "registered");
 
-    const registrations = snap.docs.map((doc) => ({
-      regId: doc.id,
-      ...doc.data(),
+    if (error) throw error;
+
+    const result = regs.map((r) => ({
+      regId: r.id,
+      studentId: r.student_id,
+      studentName: r.student_name,
+      studentIdNumber: r.student_id_number,
+      program: r.program,
+      registrationDate: r.registration_date,
     }));
-    res.json(registrations);
+
+    res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ===== 11. DELETE EVENT (Organizer/Admin) — cascades to registrations =====
+// ===== 11. DELETE EVENT (cascades via FK ON DELETE CASCADE) =====
 app.delete("/api/events/:eventId", async (req, res) => {
   const { eventId } = req.params;
 
   try {
-    await db.collection("events").doc(eventId).delete();
-
-    const regsSnap = await db
-      .collection("registrations")
-      .where("eventId", "==", eventId)
-      .get();
-    for (const doc of regsSnap.docs) {
-      await doc.ref.delete();
-    }
-
+    const { error } = await supabase.from("events").delete().eq("id", eventId);
+    if (error) throw error;
     res.json({ success: true, message: "Event deleted" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ===== 12. ADMIN: GET ALL USERS (view only) =====
+// ===== 12. ADMIN: GET ALL USERS =====
 app.get("/api/users", async (req, res) => {
   try {
-    const snap = await db.collection("users").get();
-    const users = snap.docs.map((doc) => {
-      const u = doc.data();
-      return {
-        userId: doc.id,
-        fullName: u.fullName,
-        studentId: u.studentId || null,
-        email: u.email,
-        program: u.program || null,
-        role: u.role,
-      };
-    });
-    res.json(users);
+    const { data: users, error } = await supabase.from("users").select("*");
+    if (error) throw error;
+
+    const result = users.map((u) => ({
+      userId: u.id,
+      fullName: u.full_name,
+      studentId: u.student_id || null,
+      email: u.email,
+      program: u.program || null,
+      role: u.role,
+    }));
+
+    res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ===== 13. ADMIN: DELETE USER — cascades, blocks deleting last admin =====
+// ===== 13. ADMIN: DELETE USER (cascades via FK ON DELETE CASCADE) =====
 app.delete("/api/users/:userId", async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const userDoc = await db.collection("users").doc(userId).get();
-    if (!userDoc.exists) {
+    const { data: user, error: getErr } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .single();
+    if (getErr || !user) {
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
     }
-    const user = userDoc.data();
 
     if (user.role === "admin") {
-      const adminSnap = await db
-        .collection("users")
-        .where("role", "==", "admin")
-        .get();
-      if (adminSnap.size === 1) {
-        return res.status(400).json({
-          success: false,
-          message: "Cannot delete the only admin account",
-        });
+      const { count } = await supabase
+        .from("users")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "admin");
+      if (count === 1) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Cannot delete the only admin account",
+          });
       }
     }
 
-    await db.collection("users").doc(userId).delete();
-
-    // Cascade: delete their registrations (if student)
-    const regsSnap = await db
-      .collection("registrations")
-      .where("studentId", "==", userId)
-      .get();
-    for (const doc of regsSnap.docs) await doc.ref.delete();
-
-    // Cascade: delete their events + those events' registrations (if organizer)
-    const eventsSnap = await db
-      .collection("events")
-      .where("organizerId", "==", userId)
-      .get();
-    for (const eventDoc of eventsSnap.docs) {
-      const eventRegsSnap = await db
-        .collection("registrations")
-        .where("eventId", "==", eventDoc.id)
-        .get();
-      for (const regDoc of eventRegsSnap.docs) await regDoc.ref.delete();
-      await eventDoc.ref.delete();
-    }
+    const { error } = await supabase.from("users").delete().eq("id", userId);
+    if (error) throw error;
 
     res.json({ success: true, message: "User deleted successfully" });
   } catch (err) {
@@ -573,20 +604,35 @@ app.delete("/api/users/:userId", async (req, res) => {
 // ===== 14. ADMIN: SYSTEM REPORT =====
 app.get("/api/admin/report", async (req, res) => {
   try {
-    const [usersSnap, eventsSnap, regsSnap] = await Promise.all([
-      db.collection("users").get(),
-      db.collection("events").get(),
-      db.collection("registrations").where("status", "==", "registered").get(),
+    const [
+      { count: totalUsers },
+      { count: totalStudents },
+      { count: totalOrganizers },
+      { count: totalEvents },
+      { count: totalRegistrations },
+    ] = await Promise.all([
+      supabase.from("users").select("*", { count: "exact", head: true }),
+      supabase
+        .from("users")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "student"),
+      supabase
+        .from("users")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "organizer"),
+      supabase.from("events").select("*", { count: "exact", head: true }),
+      supabase
+        .from("registrations")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "registered"),
     ]);
 
-    const users = usersSnap.docs.map((d) => d.data());
-
     res.json({
-      totalUsers: usersSnap.size,
-      totalStudents: users.filter((u) => u.role === "student").length,
-      totalOrganizers: users.filter((u) => u.role === "organizer").length,
-      totalEvents: eventsSnap.size,
-      totalRegistrations: regsSnap.size,
+      totalUsers,
+      totalStudents,
+      totalOrganizers,
+      totalEvents,
+      totalRegistrations,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -603,7 +649,7 @@ app.listen(PORT, async () => {
   console.log(`
   ╔════════════════════════════════════════════╗
   ║   School Event Registration System v2      ║
-  ║   🔥 Firebase Firestore                    ║
+  ║   ⚡ Supabase (Postgres)                    ║
   ║   Server running on http://localhost:3000  ║
   ╚════════════════════════════════════════════╝
   `);
