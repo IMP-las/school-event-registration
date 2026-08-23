@@ -27,7 +27,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-const VALID_PROGRAMS = ["EN", "CpE", "IT", "CS", "EE", "CE"];
+const VALID_PROGRAMS = ["EN", "CpE", "IT", "CS"];
 
 // ===== SEED STAFF ACCOUNTS =====
 async function seedStaff() {
@@ -104,7 +104,7 @@ function mapEvent(e, registeredCount) {
 
 // ===== 1. STUDENT SIGN UP =====
 app.post("/api/signup", async (req, res) => {
-  const { fullName, studentId, email, program, password } = req.body;
+  const { fullName, studentId, email, program, section, password } = req.body;
 
   if (!fullName || !fullName.trim()) {
     return res
@@ -119,6 +119,18 @@ app.post("/api/signup", async (req, res) => {
         message: "Student ID must be in format 2401010063 (10 digits)",
       });
   }
+  if (!program || !VALID_PROGRAMS.includes(program)) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Please select a valid program" });
+  }
+  if (!section || !section.trim()) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Section is required" });
+  }
+
+  const normalizedSection = section.trim().toUpperCase();
 
   const { data: dupId } = await supabase
     .from("users")
@@ -176,6 +188,7 @@ app.post("/api/signup", async (req, res) => {
           student_id: studentId,
           email,
           program,
+          section: normalizedSection,
           password: hashedPassword,
           role: "student",
         },
@@ -247,6 +260,7 @@ app.post("/api/login", async (req, res) => {
         email: user.email,
         studentId: user.student_id || null,
         program: user.program || null,
+        section: user.section || null,
       },
     });
   } catch (err) {
@@ -648,8 +662,8 @@ app.get("/", (req, res) => {
 app.listen(PORT, async () => {
   console.log(`
   ╔════════════════════════════════════════════╗
-  ║   School Event Registration System v2      ║
-  ║   ⚡ Supabase (Postgres)                    ║
+  ║   School Event Registration System         ║
+  ║   Supabase (Postgres)                      ║
   ║   Server running on http://localhost:3000  ║
   ╚════════════════════════════════════════════╝
   `);
