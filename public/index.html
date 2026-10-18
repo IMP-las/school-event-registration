@@ -1,201 +1,325 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>School Event Registration System</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <div class="auth-wrap">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>School Event Registration System</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script
+      src="https://kit.fontawesome.com/13b6098064.js"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <div class="auth-wrap">
+      <!-- LOGIN FORM -->
+      <div class="login-form" id="loginBox">
+        <div class="form-title">School Event Registration</div>
+        <div class="form-subtitle">Welcome back! Login to your account.</div>
 
-    <!-- ===== LOGIN FORM ===== -->
-    <div class="login-form" id="loginBox">
-      <div class="form-title">School Event Registration</div>
-      <div class="form-subtitle">Welcome back! Login to your account.</div>
+        <form id="loginForm">
+          <div class="form-group">
+            <label class="form-label">Student ID or Email</label>
+            <input
+              type="text"
+              id="loginId"
+              class="form-input"
+              placeholder="Enter ID or email"
+              required
+            />
+          </div>
 
-      <form id="loginForm">
-        <div class="form-group">
-          <label class="form-label">Student ID or Email</label>
-          <input type="text" id="loginId" class="form-input" placeholder="2401010063 or you@school.com" required>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Password</label>
-          <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" required>
-        </div>
-
-        <button type="submit" class="submit-btn" id="loginBtn">Login</button>
-      </form>
-
-      <div id="loginMessage"></div>
-
-      <div class="form-footer">
-        Don't have an account? <a onclick="showSignup()">Sign up</a>
-      </div>
-
-      <div style="margin-top:22px; padding-top:16px; border-top:1px solid #eee; font-size:11px; color:#9ca3af;">
-        <strong>Staff test accounts:</strong><br>
-        Organizer: org1@school.com / pass123<br>
-        Admin: admin@school.com / admin123
-      </div>
-    </div>
-
-    <!-- ===== SIGN UP FORM ===== -->
-    <div class="login-form hidden" id="signupBox">
-      <div class="form-title">Create Account</div>
-      <div class="form-subtitle">Sign up to register for school events</div>
-
-      <form id="signupForm">
-        <div class="form-group">
-          <label class="form-label">Full Name</label>
-          <input type="text" id="suName" class="form-input" placeholder="Juan Dela Cruz" required>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Student ID</label>
-          <input type="text" id="suStudentId" class="form-input" placeholder="2401010063" maxlength="10" required>
-          <div class="hint">Format: 10 digits, e.g. 2401010063</div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Email Address</label>
-          <input type="email" id="suEmail" class="form-input" placeholder="you@school.com" required>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Program</label>
-          <select id="suProgram" class="form-select" required>
-            <option value="">Select Program</option>
-            <option value="EN">EN — Electronics Engineering</option>
-            <option value="CpE">CpE — Computer Engineering</option>
-            <option value="IT">IT — Information Technology</option>
-            <option value="CS">CS — Computer Science</option>
-            <option value="EE">EE — Electrical Engineering</option>
-            <option value="CE">CE — Civil Engineering</option>
-          </select>
-        </div>
-
-        <div class="form-row">
           <div class="form-group">
             <label class="form-label">Password</label>
-            <input type="password" id="suPassword" class="form-input" placeholder="••••••••" required>
+            <input
+              type="password"
+              id="loginPassword"
+              class="form-input"
+              placeholder="••••••••"
+              required
+            />
           </div>
-          <div class="form-group">
-            <label class="form-label">Confirm Password</label>
-            <input type="password" id="suConfirm" class="form-input" placeholder="••••••••" required>
-          </div>
+
+          <button type="submit" class="submit-btn" id="loginBtn">Login</button>
+        </form>
+
+        <div id="loginMessage"></div>
+
+        <div class="form-footer">
+          Don't have an account? <a onclick="showSignup()">Sign up</a>
         </div>
+      </div>
 
-        <button type="submit" class="submit-btn" id="signupBtn">Register</button>
-      </form>
+      <!-- SIGN UP FORM -->
+      <div class="login-form hidden" id="signupBox">
+        <div class="form-title">Create Account</div>
+        <div class="form-subtitle">Sign up to register for school events</div>
 
-      <div id="signupMessage"></div>
+        <form id="signupForm">
+          <div class="form-group">
+            <label class="form-label">Full Name</label>
+            <input
+              type="text"
+              id="suName"
+              class="form-input"
+              placeholder="Juan Dela Cruz"
+              required
+            />
+          </div>
 
-      <div class="form-footer">
-        Already have an account? <a onclick="showLogin()">Sign in</a>
+          <div class="form-group">
+            <label class="form-label">Student ID</label>
+            <input
+              type="text"
+              id="suStudentId"
+              class="form-input"
+              placeholder="2400000000"
+              maxlength="10"
+              required
+            />
+            <div class="hint">Format: 10 digits, e.g. 2400000000</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input
+              type="email"
+              id="suEmail"
+              class="form-input"
+              placeholder="you@school.com"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Program</label>
+            <select id="suProgram" class="form-select" required>
+              <option value="">Select Program</option>
+              <option value="IT">IT — Information Technology</option>
+              <option value="CS">CS — Computer Science</option>
+              <option value="EN">EN — Electronics Engineering</option>
+              <option value="CpE">CpE — Computer Engineering</option>
+            </select>
+          </div>
+
+          <div id="suSectionGroup" class="form-group hidden">
+            <label class="form-label">Section</label>
+            <input
+              type="text"
+              id="suSection"
+              class="form-input"
+              placeholder="e.g. EN1A"
+              maxlength="10"
+            />
+            <div class="hint">Enter your section.</div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <input
+                type="password"
+                id="suPassword"
+                class="form-input"
+                placeholder="••••••••"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Confirm Password</label>
+              <input
+                type="password"
+                id="suConfirm"
+                class="form-input"
+                placeholder="••••••••"
+                required
+              />
+            </div>
+          </div>
+
+          <button type="submit" class="submit-btn" id="signupBtn">
+            Register
+          </button>
+        </form>
+
+        <div id="signupMessage"></div>
+
+        <div class="form-footer">
+          Already have an account? <a onclick="showLogin()">Sign in</a>
+        </div>
       </div>
     </div>
 
-  </div>
+    <script>
+      function showSignup() {
+        document.getElementById("loginBox").classList.add("hidden");
+        document.getElementById("signupBox").classList.remove("hidden");
+      }
+      function showLogin() {
+        document.getElementById("signupBox").classList.add("hidden");
+        document.getElementById("loginBox").classList.remove("hidden");
+      }
 
-  <script>
-    function showSignup() {
-      document.getElementById('loginBox').classList.add('hidden');
-      document.getElementById('signupBox').classList.remove('hidden');
-    }
-    function showLogin() {
-      document.getElementById('signupBox').classList.add('hidden');
-      document.getElementById('loginBox').classList.remove('hidden');
-    }
+      // LOG IN
+      document
+        .getElementById("loginForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const btn = document.getElementById("loginBtn");
+          btn.disabled = true;
+          btn.textContent = "Logging in...";
 
-    // ===== LOGIN =====
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById('loginBtn');
-      btn.disabled = true; btn.textContent = 'Logging in...';
+          const loginId = document.getElementById("loginId").value.trim();
+          const password = document.getElementById("loginPassword").value;
 
-      const loginId = document.getElementById('loginId').value.trim();
-      const password = document.getElementById('loginPassword').value;
+          try {
+            const res = await fetch("/api/login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ loginId, password }),
+            });
+            const data = await res.json();
 
-      try {
-        const res = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ loginId, password })
+            if (data.success) {
+              localStorage.setItem("user", JSON.stringify(data.user));
+              showMsg(
+                "loginMessage",
+                "✅ Login successful! Redirecting...",
+                "success",
+              );
+              setTimeout(() => {
+                if (data.user.role === "student")
+                  window.location.href = "student.html";
+                else if (data.user.role === "organizer")
+                  window.location.href = "organizer.html";
+                else if (data.user.role === "admin")
+                  window.location.href = "admin.html";
+              }, 500);
+            } else {
+              showMsg("loginMessage", "❌ " + data.message, "error");
+              btn.disabled = false;
+              btn.textContent = "Login";
+            }
+          } catch (err) {
+            showMsg("loginMessage", "❌ Cannot connect to server.", "error");
+            btn.disabled = false;
+            btn.textContent = "Login";
+          }
         });
-        const data = await res.json();
 
-        if (data.success) {
-          localStorage.setItem('user', JSON.stringify(data.user));
-          showMsg('loginMessage', '✅ Login successful! Redirecting...', 'success');
-          setTimeout(() => {
-            if (data.user.role === 'student') window.location.href = 'student.html';
-            else if (data.user.role === 'organizer') window.location.href = 'organizer.html';
-            else if (data.user.role === 'admin') window.location.href = 'admin.html';
-          }, 500);
+      // SIGN UP
+      const programSelect = document.getElementById("suProgram");
+      const sectionGroup = document.getElementById("suSectionGroup");
+      const sectionInput = document.getElementById("suSection");
+
+      programSelect.addEventListener("change", (e) => {
+        if (e.target.value) {
+          sectionGroup.classList.remove("hidden");
+          sectionInput.required = true;
         } else {
-          showMsg('loginMessage', '❌ ' + data.message, 'error');
-          btn.disabled = false; btn.textContent = 'Login';
+          sectionGroup.classList.add("hidden");
+          sectionInput.required = false;
+          sectionInput.value = "";
         }
-      } catch (err) {
-        showMsg('loginMessage', '❌ Cannot connect to server.', 'error');
-        btn.disabled = false; btn.textContent = 'Login';
-      }
-    });
+      });
 
-    // ===== SIGN UP =====
-    document.getElementById('signupForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById('signupBtn');
+      sectionInput.addEventListener("input", (e) => {
+        e.target.value = e.target.value.toUpperCase();
+      });
 
-      const fullName = document.getElementById('suName').value.trim();
-      const studentId = document.getElementById('suStudentId').value.trim();
-      const email = document.getElementById('suEmail').value.trim();
-      const program = document.getElementById('suProgram').value;
-      const password = document.getElementById('suPassword').value;
-      const confirmPassword = document.getElementById('suConfirm').value;
+      document
+        .getElementById("signupForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const btn = document.getElementById("signupBtn");
 
-      // Client-side validation (server re-validates too)
-      if (!/^\d{10}$/.test(studentId)) {
-        return showMsg('signupMessage', '❌ Student ID must be exactly 10 digits (e.g. 2401010063)', 'error');
-      }
-      if (password.length < 6) {
-        return showMsg('signupMessage', '❌ Password must be at least 6 characters', 'error');
-      }
-      if (password !== confirmPassword) {
-        return showMsg('signupMessage', '❌ Passwords do not match', 'error');
-      }
+          const fullName = document.getElementById("suName").value.trim();
+          const studentId = document.getElementById("suStudentId").value.trim();
+          const email = document.getElementById("suEmail").value.trim();
+          const program = programSelect.value;
+          const section = sectionInput.value.trim().toUpperCase();
+          const password = document.getElementById("suPassword").value;
+          const confirmPassword = document.getElementById("suConfirm").value;
 
-      btn.disabled = true; btn.textContent = 'Creating account...';
+          // Client-side validation (server re-validates too)
+          if (!/^\d{10}$/.test(studentId)) {
+            return showMsg(
+              "signupMessage",
+              "❌ Student ID must be exactly 10 digits (e.g. 2401010063)",
+              "error",
+            );
+          }
+          if (!program) {
+            return showMsg(
+              "signupMessage",
+              "❌ Please select a program",
+              "error",
+            );
+          }
+          if (!section) {
+            return showMsg(
+              "signupMessage",
+              "❌ Section is required when a program is selected",
+              "error",
+            );
+          }
+          if (password.length < 6) {
+            return showMsg(
+              "signupMessage",
+              "❌ Password must be at least 6 characters",
+              "error",
+            );
+          }
+          if (password !== confirmPassword) {
+            return showMsg(
+              "signupMessage",
+              "❌ Passwords do not match",
+              "error",
+            );
+          }
 
-      try {
-        const res = await fetch('/api/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fullName, studentId, email, program, password })
+          btn.disabled = true;
+          btn.textContent = "Creating account...";
+
+          try {
+            const res = await fetch("/api/signup", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                fullName,
+                studentId,
+                email,
+                program,
+                section,
+                password,
+              }),
+            });
+            const data = await res.json();
+
+            if (data.success) {
+              showMsg(
+                "signupMessage",
+                "✅ Account created! You can now log in.",
+                "success",
+              );
+              document.getElementById("signupForm").reset();
+              setTimeout(showLogin, 1200);
+            } else {
+              showMsg("signupMessage", "❌ " + data.message, "error");
+            }
+          } catch (err) {
+            showMsg("signupMessage", "❌ Cannot connect to server.", "error");
+          }
+
+          btn.disabled = false;
+          btn.textContent = "Register";
         });
-        const data = await res.json();
 
-        if (data.success) {
-          showMsg('signupMessage', '✅ Account created! You can now log in.', 'success');
-          document.getElementById('signupForm').reset();
-          setTimeout(showLogin, 1200);
-        } else {
-          showMsg('signupMessage', '❌ ' + data.message, 'error');
-        }
-      } catch (err) {
-        showMsg('signupMessage', '❌ Cannot connect to server.', 'error');
+      function showMsg(elId, msg, type) {
+        const div = document.getElementById(elId);
+        div.className = `message ${type}`;
+        div.textContent = msg;
       }
-
-      btn.disabled = false; btn.textContent = 'Register';
-    });
-
-    function showMsg(elId, msg, type) {
-      const div = document.getElementById(elId);
-      div.className = `message ${type}`;
-      div.textContent = msg;
-    }
-  </script>
-</body>
+    </script>
+  </body>
 </html>

@@ -5,10 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Organizer Dashboard</title>
     <link rel="stylesheet" href="styles.css" />
+    <script
+      src="https://kit.fontawesome.com/13b6098064.js"
+      crossorigin="anonymous"
+    ></script>
   </head>
   <body>
     <div class="navbar">
-      <h2>📊 Organizer Dashboard</h2>
+      <div class="icon-text-container">
+        <i class="fa-solid fa-users-gear"></i>
+        <h2>Organizer Dashboard</h2>
+      </div>
       <div class="right">
         <span class="user-name" id="userName"></span>
         <button class="logout-btn" onclick="logout()">Logout</button>
@@ -191,9 +198,9 @@
           <div class="card">
             <h3>${e.eventName}</h3>
             <p>${e.description}</p>
-            <p>📅 ${formatDate(e.eventDate)}</p>
-            <p>📍 ${e.location}</p>
-            <p>👥 Registered: <strong>${e.registeredCount}</strong> / ${e.capacity}</p>
+            <p><i class="fa-solid fa-calendar"></i> ${formatDate(e.eventDate)}</p>
+            <p><i class="fa-solid fa-map-pin"></i> ${e.location}</p>
+            <p><i class="fa-solid fa-users"></i> Registered: <strong>${e.registeredCount}</strong> / ${e.capacity}</p>
             <p>Status: <strong>${e.status}</strong></p>
             <div class="btn-group">
               <button class="btn-small btn-primary" onclick="viewParticipants('${e.eventId}', '${e.eventName}')">View Participants</button>

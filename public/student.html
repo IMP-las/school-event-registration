@@ -5,10 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Student Dashboard</title>
     <link rel="stylesheet" href="styles.css" />
+    <script
+      src="https://kit.fontawesome.com/13b6098064.js"
+      crossorigin="anonymous"
+    ></script>
   </head>
   <body>
     <div class="navbar">
-      <h2>🎓 Student Dashboard</h2>
+      <div class="icon-text-container">
+        <i class="fa-solid fa-circle-user"></i>
+        <h2>Student Dashboard</h2>
+      </div>
       <div class="right">
         <span class="user-name" id="userName"></span>
         <button class="logout-btn" onclick="logout()">Logout</button>
@@ -73,8 +80,8 @@
           <div class="card">
             <span class="status-pill status-registered">Registered</span>
             <h3>${r.eventName}</h3>
-            <p>📅 ${formatDate(r.eventDate)}</p>
-            <p>📍 ${r.location}</p>
+            <p><i class="fa-solid fa-calendar"></i> ${formatDate(r.eventDate)}</p>
+            <p><i class="fa-solid fa-map-pin"></i> ${r.location}</p>
             <div class="btn-group">
               <button class="btn-small btn-danger" onclick="unregisterEvent('${r.eventId}')">Unregister</button>
             </div>
@@ -107,8 +114,8 @@
             <span class="status-pill ${e.status === "Open" ? "status-open" : "status-full"}">${e.status}</span>
             <h3>${e.eventName}</h3>
             <p>${e.description}</p>
-            <p>📅 ${formatDate(e.eventDate)}</p>
-            <p>📍 ${e.location}</p>
+            <p><i class="fa-solid fa-calendar"></i> ${formatDate(e.eventDate)}</p>
+            <p><i class="fa-solid fa-map-pin"></i> ${e.location}</p>
             <div class="btn-group">
               <button class="btn-small btn-primary" ${e.status === "Full" ? "disabled" : ""} onclick="registerEvent('${e.eventId}')">
                 ${e.status === "Full" ? "Event Full" : "Register"}

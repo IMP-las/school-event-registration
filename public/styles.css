@@ -167,11 +167,16 @@ body {
   align-items: center;
   gap: 14px;
 }
+.navbar .icon-text-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .navbar .user-name {
   font-size: 13px;
   color: #6b7280;
 }
-
+.navbar
 .logout-btn {
   background: #fdecec;
   color: #b91c1c;
