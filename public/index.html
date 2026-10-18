@@ -46,7 +46,7 @@
         <div id="loginMessage"></div>
 
         <div class="form-footer">
-          Don't have an account? <a onclick="showSignup()">Sign up</a>
+          Don't have an account? <a id="showSignup">Sign up</a>
         </div>
       </div>
 
@@ -56,15 +56,20 @@
         <div class="form-subtitle">Sign up to register for school events</div>
 
         <form id="signupForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="suFirstName">First Name</label>
+              <input type="text" id="suFirstName" class="form-input" placeholder="Juan" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="suLastName">Last Name</label>
+              <input type="text" id="suLastName" class="form-input" placeholder="Dela Cruz" required />
+            </div>
+          </div>
+
           <div class="form-group">
-            <label class="form-label">Full Name</label>
-            <input
-              type="text"
-              id="suName"
-              class="form-input"
-              placeholder="Juan Dela Cruz"
-              required
-            />
+            <label class="form-label" for="suMiddleName">Middle Name</label>
+            <input type="text" id="suMiddleName" class="form-input" placeholder="Optional" />
           </div>
 
           <div class="form-group">
@@ -145,181 +150,11 @@
         <div id="signupMessage"></div>
 
         <div class="form-footer">
-          Already have an account? <a onclick="showLogin()">Sign in</a>
+          Already have an account? <a id="showLogin">Sign in</a>
         </div>
       </div>
     </div>
 
-    <script>
-      function showSignup() {
-        document.getElementById("loginBox").classList.add("hidden");
-        document.getElementById("signupBox").classList.remove("hidden");
-      }
-      function showLogin() {
-        document.getElementById("signupBox").classList.add("hidden");
-        document.getElementById("loginBox").classList.remove("hidden");
-      }
-
-      // LOG IN
-      document
-        .getElementById("loginForm")
-        .addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const btn = document.getElementById("loginBtn");
-          btn.disabled = true;
-          btn.textContent = "Logging in...";
-
-          const loginId = document.getElementById("loginId").value.trim();
-          const password = document.getElementById("loginPassword").value;
-
-          try {
-            const res = await fetch("/api/login", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ loginId, password }),
-            });
-            const data = await res.json();
-
-            if (data.success) {
-              localStorage.setItem("user", JSON.stringify(data.user));
-              showMsg(
-                "loginMessage",
-                "✅ Login successful! Redirecting...",
-                "success",
-              );
-              setTimeout(() => {
-                if (data.user.role === "student")
-                  window.location.href = "student.html";
-                else if (data.user.role === "organizer")
-                  window.location.href = "organizer.html";
-                else if (data.user.role === "admin")
-                  window.location.href = "admin.html";
-              }, 500);
-            } else {
-              showMsg("loginMessage", "❌ " + data.message, "error");
-              btn.disabled = false;
-              btn.textContent = "Login";
-            }
-          } catch (err) {
-            showMsg("loginMessage", "❌ Cannot connect to server.", "error");
-            btn.disabled = false;
-            btn.textContent = "Login";
-          }
-        });
-
-      // SIGN UP
-      const programSelect = document.getElementById("suProgram");
-      const sectionGroup = document.getElementById("suSectionGroup");
-      const sectionInput = document.getElementById("suSection");
-
-      programSelect.addEventListener("change", (e) => {
-        if (e.target.value) {
-          sectionGroup.classList.remove("hidden");
-          sectionInput.required = true;
-        } else {
-          sectionGroup.classList.add("hidden");
-          sectionInput.required = false;
-          sectionInput.value = "";
-        }
-      });
-
-      sectionInput.addEventListener("input", (e) => {
-        e.target.value = e.target.value.toUpperCase();
-      });
-
-      document
-        .getElementById("signupForm")
-        .addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const btn = document.getElementById("signupBtn");
-
-          const fullName = document.getElementById("suName").value.trim();
-          const studentId = document.getElementById("suStudentId").value.trim();
-          const email = document.getElementById("suEmail").value.trim();
-          const program = programSelect.value;
-          const section = sectionInput.value.trim().toUpperCase();
-          const password = document.getElementById("suPassword").value;
-          const confirmPassword = document.getElementById("suConfirm").value;
-
-          // Client-side validation (server re-validates too)
-          if (!/^\d{10}$/.test(studentId)) {
-            return showMsg(
-              "signupMessage",
-              "❌ Student ID must be exactly 10 digits (e.g. 2401010063)",
-              "error",
-            );
-          }
-          if (!program) {
-            return showMsg(
-              "signupMessage",
-              "❌ Please select a program",
-              "error",
-            );
-          }
-          if (!section) {
-            return showMsg(
-              "signupMessage",
-              "❌ Section is required when a program is selected",
-              "error",
-            );
-          }
-          if (password.length < 6) {
-            return showMsg(
-              "signupMessage",
-              "❌ Password must be at least 6 characters",
-              "error",
-            );
-          }
-          if (password !== confirmPassword) {
-            return showMsg(
-              "signupMessage",
-              "❌ Passwords do not match",
-              "error",
-            );
-          }
-
-          btn.disabled = true;
-          btn.textContent = "Creating account...";
-
-          try {
-            const res = await fetch("/api/signup", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                fullName,
-                studentId,
-                email,
-                program,
-                section,
-                password,
-              }),
-            });
-            const data = await res.json();
-
-            if (data.success) {
-              showMsg(
-                "signupMessage",
-                "✅ Account created! You can now log in.",
-                "success",
-              );
-              document.getElementById("signupForm").reset();
-              setTimeout(showLogin, 1200);
-            } else {
-              showMsg("signupMessage", "❌ " + data.message, "error");
-            }
-          } catch (err) {
-            showMsg("signupMessage", "❌ Cannot connect to server.", "error");
-          }
-
-          btn.disabled = false;
-          btn.textContent = "Register";
-        });
-
-      function showMsg(elId, msg, type) {
-        const div = document.getElementById(elId);
-        div.className = `message ${type}`;
-        div.textContent = msg;
-      }
-    </script>
+    <script type="module" src="js/pages/auth.js"></script>
   </body>
 </html>

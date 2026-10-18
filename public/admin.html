@@ -5,63 +5,60 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin Dashboard</title>
     <link rel="stylesheet" href="styles.css" />
-    <script
-      src="https://kit.fontawesome.com/13b6098064.js"
-      crossorigin="anonymous"
-    ></script>
+    <script src="https://kit.fontawesome.com/13b6098064.js" crossorigin="anonymous"></script>
   </head>
-
   <body>
-    <div class="navbar">
-      <div class="icon-text-container">
-        <i class="fa-solid fa-user-tie"></i>
-        <h2>Admin Dashboard</h2>
-      </div>
-      <div class="right">
-        <span class="user-name" id="userName"></span>
-        <button class="logout-btn" onclick="logout()">Logout</button>
-      </div>
-    </div>
+    <div id="navbar"></div>
 
     <div class="container">
-      <div class="main-content">
-        <div class="section">
-          <h2>System Statistics</h2>
-          <div class="stats-grid" id="statsGrid">
-            <div class="loading">Loading...</div>
-          </div>
+      <div class="main-content" id="tabs">
+        <div class="tab-bar">
+          <button class="tab-btn" data-tab="overview">Overview</button>
+          <button class="tab-btn" data-tab="users">Users</button>
+          <button class="tab-btn" data-tab="events">Events</button>
+          <button class="tab-btn" data-tab="audit">Audit Log</button>
         </div>
 
-        <div class="section">
-          <h2>  
-            Manage Users
-            <span
-              style="font-weight: 400; font-size: 12px; color: #9ca3af"
-            ></span>
-          </h2>
+        <div class="section" data-tab-panel="overview">
+          <h2>System Statistics</h2>
+          <div class="stats-grid" id="statsGrid"><div class="loading">Loading...</div></div>
+        </div>
+
+        <div class="section hidden" data-tab-panel="users">
+          <div class="section-header">
+            <h2>Manage Users</h2>
+            <button class="btn-small btn-primary" id="newOrganizerBtn">
+              <i class="fa-solid fa-plus"></i> Create Organizer
+            </button>
+          </div>
+          <div class="toolbar">
+            <input type="search" id="userSearch" class="form-input" placeholder="Search by name, email or student ID" />
+            <select id="roleFilter" class="form-select">
+              <option value="">All roles</option>
+              <option value="student">Students</option>
+              <option value="organizer">Organizers</option>
+              <option value="admin">Admins</option>
+            </select>
+          </div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>#</th>
                   <th>Name</th>
                   <th>Student ID</th>
                   <th>Email</th>
-                  <th>Program</th>
+                  <th>Program / Section</th>
                   <th>Role</th>
                   <th>Action</th>
                 </tr>
               </thead>
-              <tbody id="usersBody">
-                <tr>
-                  <td colspan="7" class="loading">Loading...</td>
-                </tr>
-              </tbody>
+              <tbody id="usersBody"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
             </table>
           </div>
+          <div class="pager" id="usersPager"></div>
         </div>
 
-        <div class="section">
+        <div class="section hidden" data-tab-panel="events">
           <h2>Manage Events</h2>
           <div class="table-wrap">
             <table>
@@ -77,177 +74,67 @@
                   <th>Action</th>
                 </tr>
               </thead>
-              <tbody id="eventsBody">
-                <tr>
-                  <td colspan="8" class="loading">Loading...</td>
-                </tr>
-              </tbody>
+              <tbody id="eventsBody"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
             </table>
           </div>
+        </div>
+
+        <div class="section hidden" data-tab-panel="audit">
+          <div class="section-header">
+            <h2>Audit Log</h2>
+            <button class="btn-small btn-secondary" id="refreshAuditBtn">
+              <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Who</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="auditBody"><tr><td colspan="3" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pager" id="auditPager"></div>
         </div>
       </div>
     </div>
 
-    <script>
-      let currentUser = null;
+    <!-- Create organizer -->
+    <div class="modal" id="organizerModal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2>Create Organizer Account</h2>
+          <button type="button" class="icon-btn" data-close-modal aria-label="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <form id="organizerForm">
+          <div class="form-group">
+            <label class="form-label" for="orgName">Full name</label>
+            <input type="text" id="orgName" class="form-input" maxlength="100" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="orgEmail">Email</label>
+            <input type="email" id="orgEmail" class="form-input" placeholder="organizer@school.com" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="orgPassword">Temporary password</label>
+            <div class="input-with-button">
+              <input type="text" id="orgPassword" class="form-input" autocomplete="off" required />
+              <button type="button" class="btn-small btn-secondary" id="generatePasswordBtn">Generate</button>
+            </div>
+            <div class="hint">Share this with the organizer. They must replace it when they first log in.</div>
+          </div>
+          <button type="submit" class="submit-btn" id="organizerBtn">Create Account</button>
+        </form>
+        <div id="organizerMessage"></div>
+      </div>
+    </div>
 
-      function checkAuth() {
-        const user = localStorage.getItem("user");
-        if (!user) {
-          window.location.href = "index.html";
-          return;
-        }
-        currentUser = JSON.parse(user);
-        if (currentUser.role !== "admin") {
-          window.location.href = "index.html";
-          return;
-        }
-        document.getElementById("userName").textContent = currentUser.fullName;
-        loadDashboard();
-      }
-
-      async function loadDashboard() {
-        await Promise.all([loadStats(), loadUsers(), loadEvents()]);
-      }
-
-      async function loadStats() {
-        try {
-          const res = await fetch("/api/admin/report");
-          const r = await res.json();
-          document.getElementById("statsGrid").innerHTML = `
-          <div class="stat-box"><div class="number">${r.totalUsers}</div><div class="label">Total Users</div></div>
-          <div class="stat-box"><div class="number">${r.totalStudents}</div><div class="label">Students</div></div>
-          <div class="stat-box"><div class="number">${r.totalOrganizers}</div><div class="label">Organizers</div></div>
-          <div class="stat-box"><div class="number">${r.totalEvents}</div><div class="label">Events</div></div>
-          <div class="stat-box"><div class="number">${r.totalRegistrations}</div><div class="label">Registrations</div></div>
-        `;
-        } catch (err) {
-          document.getElementById("statsGrid").innerHTML =
-            "<p>Error loading stats.</p>";
-        }
-      }
-
-      async function loadUsers() {
-        try {
-          const res = await fetch("/api/users");
-          const users = await res.json();
-          const tbody = document.getElementById("usersBody");
-
-          if (users.length === 0) {
-            tbody.innerHTML =
-              '<tr><td colspan="7" style="text-align:center; color:#aaa;">No users found</td></tr>';
-            return;
-          }
-
-          tbody.innerHTML = users
-            .map(
-              (u, i) => `
-          <tr>
-            <td>${i + 1}</td>
-            <td>${u.fullName}</td>
-            <td>${u.studentId || "—"}</td>
-            <td>${u.email}</td>
-            <td>${u.program || "—"}</td>
-            <td><span class="role-badge role-${u.role}">${u.role.toUpperCase()}</span></td>
-            <td><button class="btn-small btn-danger" onclick="deleteUser('${u.userId}', '${u.fullName}')">Delete</button></td>
-          </tr>
-        `,
-            )
-            .join("");
-        } catch (err) {
-          document.getElementById("usersBody").innerHTML =
-            '<tr><td colspan="7">Error loading users.</td></tr>';
-        }
-      }
-
-      async function loadEvents() {
-        try {
-          const res = await fetch("/api/events");
-          const events = await res.json();
-          const tbody = document.getElementById("eventsBody");
-
-          if (events.length === 0) {
-            tbody.innerHTML =
-              '<tr><td colspan="8" style="text-align:center; color:#aaa;">No events found</td></tr>';
-            return;
-          }
-
-          tbody.innerHTML = events
-            .map(
-              (e, i) => `
-          <tr>
-            <td>${i + 1}</td>
-            <td>${e.eventName}</td>
-            <td>${e.organizerName}</td>
-            <td>${formatDate(e.eventDate)}</td>
-            <td>${e.capacity}</td>
-            <td>${e.registeredCount}</td>
-            <td>${e.status}</td>
-            <td><button class="btn-small btn-danger" onclick="deleteEvent('${e.eventId}', '${e.eventName}')">Delete</button></td>
-          </tr>
-        `,
-            )
-            .join("");
-        } catch (err) {
-          document.getElementById("eventsBody").innerHTML =
-            '<tr><td colspan="8">Error loading events.</td></tr>';
-        }
-      }
-
-      async function deleteUser(userId, name) {
-        if (
-          !confirm(
-            `Delete user "${name}"? This also removes their registrations/events.`,
-          )
-        )
-          return;
-        try {
-          const res = await fetch(`/api/users/${userId}`, { method: "DELETE" });
-          const data = await res.json();
-          if (data.success) {
-            alert("✅ User deleted.");
-            loadDashboard();
-          } else alert("❌ " + data.message);
-        } catch (err) {
-          alert("❌ Error deleting user.");
-        }
-      }
-
-      async function deleteEvent(eventId, name) {
-        if (
-          !confirm(
-            `Delete event "${name}"? All registrations will also be removed.`,
-          )
-        )
-          return;
-        try {
-          const res = await fetch(`/api/events/${eventId}`, {
-            method: "DELETE",
-          });
-          const data = await res.json();
-          if (data.success) {
-            alert("✅ Event deleted.");
-            loadDashboard();
-          } else alert("❌ " + data.message);
-        } catch (err) {
-          alert("❌ Error deleting event.");
-        }
-      }
-
-      function formatDate(dateStr) {
-        return new Date(dateStr).toLocaleDateString("en-PH", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        });
-      }
-
-      function logout() {
-        localStorage.removeItem("user");
-        window.location.href = "index.html";
-      }
-
-      checkAuth();
-    </script>
+    <script type="module" src="js/pages/admin.js"></script>
   </body>
 </html>
